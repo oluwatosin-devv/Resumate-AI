@@ -6,7 +6,8 @@ const pdfParse = require("pdf-parse");
 const processResume = require("./utils");
 const pdfkit = require("pdfkit");
 const app = express();
-const userSession = {};
+// const userSession = {};
+const { kv } = require("@vercel/kv");
 
 app.use(express.json());
 
@@ -74,10 +75,15 @@ bot.on("document", async (msg) => {
   const response = await axios.get(url, { responseType: "arraybuffer" });
   const data = await pdfParse(response.data);
   // const originalPdfText = data.text;
-  userSession[chatID] = {
+
+  await kv.setex(`resume:${chatID}`, 300, {
     resume: data.text,
     fileName: msg.document.file_name.split(".")[0],
-  };
+  });
+  // userSession[chatID] = {
+  //   resume: data.text,
+  //   fileName: msg.document.file_name.split(".")[0],
+  // };
 
   //ask for job description.
   bot.sendMessage(
@@ -92,9 +98,12 @@ bot.on("message", async (msg) => {
   const chatID = msg.chat.id;
 
   if (msg.document) return;
+  const session = await kv.get(`resume:${chatID}`);
+  if (session) {
+    session.jobDescription = msg.text;
 
-  if (userSession[chatID] && !userSession[chatID].jobDescription) {
-    userSession[chatID].jobDescription = msg.text;
+    // if (userSession[chatID] && !userSession[chatID].jobDescription) {
+    //   userSession[chatID].jobDescription = msg.text;
     bot.sendMessage(
       chatID,
       `📋 Got the job description! I’ll now tailor your resume to this role and generate a polished PDF for you. 🚀  
@@ -106,13 +115,13 @@ bot.on("message", async (msg) => {
     const response = await processResume(
       bot,
       chatID,
-      userSession[chatID].resume,
-      userSession[chatID].jobDescription
+      session.resume,
+      session.jobDescription
     );
 
     const enhancedText = response.choices[0].message.content;
     //create-a-new-pdf
-    const output = `/tmp/${userSession[chatID].fileName}_enhanced.pdf`;
+    const output = `/tmp/${session.fileName}_enhanced.pdf`;
     const pdfDoc = new pdfkit();
     const writeStream = fs.createWriteStream(output);
     pdfDoc.pipe(writeStream);
