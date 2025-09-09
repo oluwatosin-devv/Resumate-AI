@@ -6,12 +6,12 @@ const pdfParse = require("pdf-parse");
 const processResume = require("./utils");
 const pdfkit = require("pdfkit");
 const app = express();
-// const userSession = {};
-const { kv } = require("@vercel/kv");
+const userSession = {};
+// const { kv } = require("@vercel/kv");
 
 app.use(express.json());
 
-const bot = new Telegrambot(process.env.BOT_TOKEN, { polling: false });
+const bot = new Telegrambot(process.env.BOT_TOKEN, { polling: true });
 
 app.post(`/api/${process.env.BOT_TOKEN}`, (req, res) => {
   try {
@@ -77,16 +77,16 @@ bot.on("document", async (msg) => {
     const data = await pdfParse(response.data);
     // const originalPdfText = data.text;
 
-    const session = {
-      resume: data.text,
-      fileName: msg.document.file_name.split(".")[0],
-    };
-    await kv.setex(`resume:${chatID}`, 300, JSON.stringify(session));
-
-    // userSession[chatID] = {
+    // const session = {
     //   resume: data.text,
     //   fileName: msg.document.file_name.split(".")[0],
     // };
+    // await kv.setex(`resume:${chatID}`, 300, JSON.stringify(session));
+
+    userSession[chatID] = {
+      resume: data.text,
+      fileName: msg.document.file_name.split(".")[0],
+    };
 
     //ask for job description.
     bot.sendMessage(
@@ -106,44 +106,45 @@ bot.on("message", async (msg) => {
 
   if (msg.document) return;
   try {
-    const sessionStr = await kv.get(`resume:${chatID}`);
-    if (!sessionStr) return;
-    const session = JSON.parse(sessionStr);
-    session.jobDescription = msg.text;
+    // const sessionStr = await kv.get(`resume:${chatID}`);
+    // if (!sessionStr) return;
+    // const session = JSON.parse(sessionStr);
+    // session.jobDescription = msg.text;
 
-    // if (userSession[chatID] && !userSession[chatID].jobDescription) {
-    //   userSession[chatID].jobDescription = msg.text;
-    bot.sendMessage(
-      chatID,
-      `📋 Got the job description! I’ll now tailor your resume to this role and generate a polished PDF for you. 🚀  
+    if (userSession[chatID] && !userSession[chatID].jobDescription) {
+      userSession[chatID].jobDescription = msg.text;
+      bot.sendMessage(
+        chatID,
+        `📋 Got the job description! I’ll now tailor your resume to this role and generate a polished PDF for you. 🚀  
     
     ⚠️ *Note:* Some styling or formatting from your original PDF may not be preserved, but the content will be fully optimized for the job.`,
-      { parse_mode: "Markdown" }
-    );
+        { parse_mode: "Markdown" }
+      );
 
-    const response = await processResume(
-      bot,
-      chatID,
-      session.resume,
-      session.jobDescription
-    );
+      const response = await processResume(
+        bot,
+        chatID,
+        userSession[chatID].resume,
+        userSession[chatID].jobDescription
+      );
 
-    const enhancedText = response.choices[0].message.content;
-    //create-a-new-pdf
-    const output = `/tmp/${session.fileName}_enhanced.pdf`;
-    const pdfDoc = new pdfkit();
-    const writeStream = fs.createWriteStream(output);
-    pdfDoc.pipe(writeStream);
-    pdfDoc.fontSize(12).text(enhancedText, { align: "left" });
-    pdfDoc.end();
+      const enhancedText = response.choices[0].message.content;
+      //create-a-new-pdf
+      const output = `/tmp/${userSession[chatID].fileName}_enhanced.pdf`;
+      const pdfDoc = new pdfkit();
+      const writeStream = fs.createWriteStream(output);
+      pdfDoc.pipe(writeStream);
+      pdfDoc.fontSize(12).text(enhancedText, { align: "left" });
+      pdfDoc.end();
 
-    // enhanced resume
+      // enhanced resume
 
-    writeStream.on("finish", async () => {
-      await bot.sendDocument(chatID, output);
-      fs.unlinkSync(output); // delete the file immediately after sending
-      console.log(`Deleted temp file: ${output}`);
-    });
+      writeStream.on("finish", async () => {
+        await bot.sendDocument(chatID, output);
+        fs.unlinkSync(output); // delete the file immediately after sending
+        console.log(`Deleted temp file: ${output}`);
+      });
+    }
   } catch (err) {
     console.error("Message error:", err);
     bot.sendMessage(chatID, "⚠️ Something went wrong. Please try again.");
