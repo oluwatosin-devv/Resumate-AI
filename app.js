@@ -10,6 +10,13 @@ const userSession = {};
 
 const bot = new Telegrambot(process.env.BOT_TOKEN, { polling: true });
 
+app.get("/ap1/v1/resumebot/ping", (req, res, next) => {
+  res.status(200).json({
+    status: "success",
+    message: "pong... server healthy",
+  });
+});
+
 //start command
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
