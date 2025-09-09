@@ -8,7 +8,14 @@ const pdfkit = require("pdfkit");
 const app = express();
 const userSession = {};
 
-const bot = new Telegrambot(process.env.BOT_TOKEN, { polling: true });
+app.use(express.json());
+
+const bot = new Telegrambot(process.env.BOT_TOKEN, { polling: false });
+
+app.post(`/api/${process.env.BOT_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
 
 app.get("/ap1/v1/resumebot/ping", (req, res, next) => {
   res.status(200).json({
