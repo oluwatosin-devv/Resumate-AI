@@ -12,9 +12,14 @@ app.use(express.json());
 
 const bot = new Telegrambot(process.env.BOT_TOKEN, { polling: false });
 
-app.post(`/api/${process.env.BOT_TOKEN}`, (req, res) => {
-  bot.processUpdate(req.body);
-  res.sendStatus(200);
+app.post(`/api/${process.env.BOT_TOKEN}`, async (req, res) => {
+  try {
+    await bot.processUpdate(req.body);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Webhook error:", error);
+    res.sendStatus(500);
+  }
 });
 
 app.get("/ap1/v1/resumebot/ping", (req, res, next) => {
