@@ -68,29 +68,36 @@ bot.on("document", async (msg) => {
   }
 
   //get file from telegram
-  const fileid = msg.document.file_id;
-  const file = await bot.getFile(fileid);
-  const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
+  try {
+    const fileid = msg.document.file_id;
+    const file = await bot.getFile(fileid);
+    const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
 
-  const response = await axios.get(url, { responseType: "arraybuffer" });
-  const data = await pdfParse(response.data);
-  // const originalPdfText = data.text;
+    const response = await axios.get(url, { responseType: "arraybuffer" });
+    const data = await pdfParse(response.data);
+    // const originalPdfText = data.text;
 
-  await kv.setex(`resume:${chatID}`, 300, {
-    resume: data.text,
-    fileName: msg.document.file_name.split(".")[0],
-  });
-  // userSession[chatID] = {
-  //   resume: data.text,
-  //   fileName: msg.document.file_name.split(".")[0],
-  // };
+    const session = {
+      resume: data.text,
+      fileName: msg.document.file_name.split(".")[0],
+    };
+    await kv.setex(`resume:${chatID}`, 300, JSON.stringify(session));
 
-  //ask for job description.
-  bot.sendMessage(
-    chatID,
-    "✅ Resume received!\n\nNow please paste or upload the *job description* for the role you’re applying for.",
-    { parse_mode: "Markdown" }
-  );
+    // userSession[chatID] = {
+    //   resume: data.text,
+    //   fileName: msg.document.file_name.split(".")[0],
+    // };
+
+    //ask for job description.
+    bot.sendMessage(
+      chatID,
+      "✅ Resume received!\n\nNow please paste or upload the *job description* for the role you’re applying for.",
+      { parse_mode: "Markdown" }
+    );
+  } catch (err) {
+    console.error("Document error:", err);
+    bot.sendMessage(chatID, "⚠️ Error reading the resume. Please try again.");
+  }
 });
 
 //listen for text message(job description)
@@ -98,8 +105,10 @@ bot.on("message", async (msg) => {
   const chatID = msg.chat.id;
 
   if (msg.document) return;
-  const session = await kv.get(`resume:${chatID}`);
-  if (session) {
+  try {
+    const sessionStr = await kv.get(`resume:${chatID}`);
+    if (!sessionStr) return;
+    const session = JSON.parse(sessionStr);
     session.jobDescription = msg.text;
 
     // if (userSession[chatID] && !userSession[chatID].jobDescription) {
@@ -135,6 +144,9 @@ bot.on("message", async (msg) => {
       fs.unlinkSync(output); // delete the file immediately after sending
       console.log(`Deleted temp file: ${output}`);
     });
+  } catch (err) {
+    console.error("Message error:", err);
+    bot.sendMessage(chatID, "⚠️ Something went wrong. Please try again.");
   }
 });
 
