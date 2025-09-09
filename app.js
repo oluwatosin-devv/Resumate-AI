@@ -107,7 +107,7 @@ bot.on("message", async (msg) => {
 
     const enhancedText = response.choices[0].message.content;
     //create-a-new-pdf
-    const output = `${userSession[chatID].fileName}_enhanced.pdf`;
+    const output = `/tmp/${userSession[chatID].fileName}_enhanced.pdf`;
     const pdfDoc = new pdfkit();
     const writeStream = fs.createWriteStream(output);
     pdfDoc.pipe(writeStream);
@@ -124,4 +124,4 @@ bot.on("message", async (msg) => {
   }
 });
 
-module.exports = { app, bot };
+module.exports = app;

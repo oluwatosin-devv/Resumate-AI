@@ -1,6 +1,6 @@
 require("dotenv").config({ path: ".env" });
 
-const { app } = require("./app");
+const app = require("./app");
 
 //start server
 
