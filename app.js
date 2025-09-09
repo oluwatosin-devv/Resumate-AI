@@ -13,9 +13,9 @@ app.use(express.json());
 
 const bot = new Telegrambot(process.env.BOT_TOKEN, { polling: false });
 
-app.post(`/api/${process.env.BOT_TOKEN}`, async (req, res) => {
+app.post(`/api/${process.env.BOT_TOKEN}`, (req, res) => {
   try {
-    await bot.processUpdate(req.body);
+    bot.processUpdate(req.body);
     res.sendStatus(200);
   } catch (error) {
     console.error("Webhook error:", error);
